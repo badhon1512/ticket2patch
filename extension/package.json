@@ -1,0 +1,98 @@
+{
+  "name": "ticket2patch",
+  "displayName": "Ticket2Patch",
+  "description": "Review production-ticket investigations and patches from VS Code.",
+  "version": "0.0.1",
+  "publisher": "ticket2patch",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "ai",
+    "agent",
+    "jira",
+    "pull request",
+    "langgraph"
+  ],
+  "activationEvents": [
+    "onView:ticket2patch.runs",
+    "onCommand:ticket2patch.startRun",
+    "onCommand:ticket2patch.refresh"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ticket2patch.startRun",
+        "title": "Ticket2Patch: Start from Jira Ticket",
+        "icon": "$(play)"
+      },
+      {
+        "command": "ticket2patch.refresh",
+        "title": "Ticket2Patch: Refresh Runs",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "ticket2patch.openSettings",
+        "title": "Ticket2Patch: Open Settings",
+        "icon": "$(gear)"
+      }
+    ],
+    "configuration": {
+      "title": "Ticket2Patch",
+      "properties": {
+        "ticket2patch.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "Base URL of the Ticket2Patch backend."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ticket2patch",
+          "title": "Ticket2Patch",
+          "icon": "media/ticket2patch.svg"
+        }
+      ]
+    },
+    "views": {
+      "ticket2patch": [
+        {
+          "id": "ticket2patch.runs",
+          "name": "Runs"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "ticket2patch.runs",
+        "contents": "No Ticket2Patch runs are loaded.\n[Start from Jira Ticket](command:ticket2patch.startRun)\n[Configure Backend](command:ticket2patch.openSettings)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "ticket2patch.startRun",
+          "when": "view == ticket2patch.runs",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ticket2patch.refresh",
+          "when": "view == ticket2patch.runs",
+          "group": "navigation@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "check": "node --check src/extension.js"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
