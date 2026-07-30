@@ -54,7 +54,13 @@ export function ActivityDashboard() {
       if (!response.ok) throw new Error(`Activity API returned ${response.status}`);
       const nextRuns = (await response.json()) as AgentRun[];
       setRuns(nextRuns);
-      setSelectedRunId((current) => current ?? nextRuns[0]?.id ?? null);
+      setSelectedRunId(
+        (current) =>
+          current ??
+          new URLSearchParams(window.location.search).get("run") ??
+          nextRuns[0]?.id ??
+          null,
+      );
       setError(null);
       setLastSyncedAt(new Date());
     } catch (fetchError) {
@@ -121,6 +127,10 @@ export function ActivityDashboard() {
             <small>Agent activity console</small>
           </span>
         </a>
+        <nav className="mainNav" aria-label="Primary navigation">
+          <a className="active" href="/">Activity</a>
+          <a href="/chat">Chat</a>
+        </nav>
         <div className="connection">
           <span className={`pulse ${error ? "offline" : ""}`} />
           <span>{error ? "API unavailable" : "Live monitoring"}</span>
