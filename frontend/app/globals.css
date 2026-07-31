@@ -564,7 +564,8 @@ footer {
   text-transform: uppercase;
 }
 
-.repositoryForm input {
+.repositoryForm input,
+.repositoryForm select {
   width: 100%;
   margin-top: 7px;
   padding: 11px;
@@ -576,14 +577,107 @@ footer {
   font: 11px var(--font-mono), monospace;
 }
 
-.repositoryForm input:focus {
+.repositoryForm input:focus,
+.repositoryForm select:focus {
   box-shadow: inset 0 -3px var(--blue);
 }
 
-.repositoryForm input:disabled {
+.repositoryForm input:disabled,
+.repositoryForm select:disabled {
   border-color: var(--line);
   color: var(--muted);
   cursor: not-allowed;
+}
+
+.repositoryError {
+  margin: 8px 0 0;
+  color: var(--danger);
+  font: 8px var(--font-mono), monospace;
+}
+
+.ticketPicker {
+  margin-top: 24px;
+}
+
+.ticketPickerHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.ticketPickerHeader .eyebrow {
+  margin-bottom: 4px;
+}
+
+.ticketPickerHeader strong {
+  font-size: 13px;
+}
+
+.ticketPickerHeader > span {
+  padding: 5px 7px;
+  background: var(--ink);
+  color: white;
+  font: 8px var(--font-mono), monospace;
+}
+
+.ticketList {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+}
+
+.ticketList button {
+  display: grid;
+  width: 100%;
+  gap: 5px;
+  padding: 13px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+}
+
+.ticketList button:last-child {
+  border-bottom: 0;
+}
+
+.ticketList button:hover,
+.ticketList button.selected {
+  background: var(--acid);
+}
+
+.ticketList button:disabled {
+  cursor: not-allowed;
+}
+
+.ticketKey {
+  color: var(--blue);
+  font: 700 9px var(--font-mono), monospace;
+}
+
+.ticketList button strong {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticketList button small,
+.ticketNotice {
+  margin: 0;
+  color: var(--muted);
+  font: 8px var(--font-mono), monospace;
+}
+
+.ticketNotice {
+  padding: 14px;
+}
+
+.ticketNotice.error {
+  color: var(--danger);
 }
 
 .sessionCard {
@@ -670,6 +764,17 @@ footer {
   margin: 0;
   font-size: 18px;
   letter-spacing: -0.03em;
+}
+
+.chatPanelHeader small {
+  display: block;
+  max-width: 560px;
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .toolScope {

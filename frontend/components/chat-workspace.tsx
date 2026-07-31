@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 const API_URL =
   process.env.NEXT_PUBLIC_ACTIVITY_API_URL ?? "http://localhost:8000";
@@ -19,6 +19,26 @@ interface ChatResponse {
   run_id: string;
   message: string;
   status: string;
+}
+
+interface JiraTicket {
+  key: string;
+  summary: string;
+  status: string;
+  issue_type: string;
+  priority: string | null;
+  updated: string | null;
+  url: string;
+}
+
+interface GitHubRepository {
+  name: string;
+  full_name: string;
+  url: string;
+  language: string | null;
+  updated_at: string;
+  default_branch: string;
+  private: boolean;
 }
 
 const suggestions = [
@@ -44,10 +64,108 @@ export function ChatWorkspace() {
   const [status, setStatus] = useState("ready");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tickets, setTickets] = useState<JiraTicket[]>([]);
+  const [selectedTicketKey, setSelectedTicketKey] = useState<string | null>(null);
+  const [ticketsLoading, setTicketsLoading] = useState(true);
+  const [ticketError, setTicketError] = useState<string | null>(null);
+  const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
+  const [repositoriesLoading, setRepositoriesLoading] = useState(true);
+  const [repositoryError, setRepositoryError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const repository = useMemo(() => `${owner}/${repo}`, [owner, repo]);
   const repositoryLocked = sessionId !== null;
+  const selectedTicket = tickets.find(
+    (ticket) => ticket.key === selectedTicketKey,
+  );
+  const selectedRepository = repositories.find(
+    (repositoryOption) => repositoryOption.name === repo,
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadTickets() {
+      setTicketsLoading(true);
+      setTicketError(null);
+      try {
+        const response = await fetch(`${API_URL}/api/jira/issues`);
+        const payload = (await response.json()) as JiraTicket[] | { detail?: string };
+        if (!response.ok) {
+          throw new Error(
+            !Array.isArray(payload) && payload.detail
+              ? payload.detail
+              : `Jira API returned ${response.status}`,
+          );
+        }
+        if (active) setTickets(payload as JiraTicket[]);
+      } catch (loadError) {
+        if (active) {
+          setTicketError(
+            loadError instanceof Error ? loadError.message : "Unable to load Jira tickets",
+          );
+        }
+      } finally {
+        if (active) setTicketsLoading(false);
+      }
+    }
+
+    void loadTickets();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadRepositories() {
+      setRepositoriesLoading(true);
+      setRepositoryError(null);
+      try {
+        const response = await fetch(
+          `${API_URL}/api/github/repositories?owner=${encodeURIComponent(owner)}`,
+        );
+        const payload = (await response.json()) as
+          | GitHubRepository[]
+          | { detail?: string };
+        if (!response.ok) {
+          throw new Error(
+            !Array.isArray(payload) && payload.detail
+              ? payload.detail
+              : `GitHub API returned ${response.status}`,
+          );
+        }
+        if (active) {
+          const recent = payload as GitHubRepository[];
+          setRepositories(recent);
+          setRepo((current) =>
+            recent.some((repository) => repository.name === current)
+              ? current
+              : (recent[0]?.name ?? ""),
+          );
+        }
+      } catch (loadError) {
+        if (active) {
+          setRepositoryError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load GitHub repositories",
+          );
+        }
+      } finally {
+        if (active) setRepositoriesLoading(false);
+      }
+    }
+
+    const timer = window.setTimeout(() => {
+      if (owner.trim()) void loadRepositories();
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [owner]);
 
   function resetSession() {
     setMessages([]);
@@ -61,7 +179,16 @@ export function ChatWorkspace() {
 
   async function sendMessage(content: string) {
     const message = content.trim();
-    if (!message || sending || !owner.trim() || !repo.trim()) return;
+    if (
+      !message ||
+      sending ||
+      !owner.trim() ||
+      !repo.trim() ||
+      !selectedTicketKey ||
+      !selectedRepository
+    ) {
+      return;
+    }
 
     const developerMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -82,6 +209,8 @@ export function ChatWorkspace() {
         body: JSON.stringify({
           owner: owner.trim(),
           repo: repo.trim(),
+          ticket_key: selectedTicketKey,
+          base_branch: selectedRepository.default_branch,
           message,
           session_id: sessionId,
         }),
@@ -178,13 +307,57 @@ export function ChatWorkspace() {
             </label>
             <label>
               Repository
-              <input
+              <select
                 disabled={repositoryLocked}
                 onChange={(event) => setRepo(event.target.value)}
                 value={repo}
-              />
+              >
+                {repositoriesLoading && <option value={repo}>Loading repositories…</option>}
+                {!repositoriesLoading && repositories.length === 0 && (
+                  <option value="">No repositories found</option>
+                )}
+                {repositories.map((repositoryOption) => (
+                  <option key={repositoryOption.full_name} value={repositoryOption.name}>
+                    {repositoryOption.name}
+                    {repositoryOption.language ? ` · ${repositoryOption.language}` : ""}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
+          {repositoryError && (
+            <p className="repositoryError">{repositoryError}</p>
+          )}
+
+          <section className="ticketPicker" aria-label="Jira tickets">
+            <div className="ticketPickerHeader">
+              <div>
+                <p className="eyebrow">JIRA / SELECT A TICKET</p>
+                <strong>{tickets.length} visible tickets</strong>
+              </div>
+              {selectedTicketKey && <span>{selectedTicketKey}</span>}
+            </div>
+            <div className="ticketList">
+              {ticketsLoading && <p className="ticketNotice">Loading Jira tickets…</p>}
+              {ticketError && <p className="ticketNotice error">{ticketError}</p>}
+              {!ticketsLoading && !ticketError && tickets.length === 0 && (
+                <p className="ticketNotice">No Jira tickets are visible.</p>
+              )}
+              {tickets.map((ticket) => (
+                <button
+                  className={ticket.key === selectedTicketKey ? "selected" : ""}
+                  disabled={repositoryLocked}
+                  key={ticket.key}
+                  onClick={() => setSelectedTicketKey(ticket.key)}
+                  type="button"
+                >
+                  <span className="ticketKey">{ticket.key}</span>
+                  <strong>{ticket.summary}</strong>
+                  <small>{ticket.status} · {ticket.issue_type}</small>
+                </button>
+              ))}
+            </div>
+          </section>
 
           <div className="sessionCard">
             <span>Session status</span>
@@ -193,6 +366,10 @@ export function ChatWorkspace() {
               <div>
                 <dt>Repository</dt>
                 <dd>{repository}</dd>
+              </div>
+              <div>
+                <dt>Jira ticket</dt>
+                <dd>{selectedTicketKey ?? "Select one"}</dd>
               </div>
               <div>
                 <dt>Run</dt>
@@ -212,6 +389,9 @@ export function ChatWorkspace() {
             <div>
               <p className="kicker">Live conversation</p>
               <h2>{repository}</h2>
+              {selectedTicket && (
+                <small>{selectedTicket.key} · {selectedTicket.summary}</small>
+              )}
             </div>
             <span className="toolScope">issue_read + issue_write</span>
           </div>
@@ -223,8 +403,8 @@ export function ChatWorkspace() {
                 <p className="eyebrow">TICKET2PATCH IS READY</p>
                 <h2>What should we investigate?</h2>
                 <p>
-                  Start with a GitHub issue, ask about available capabilities,
-                  or create a clearly scoped engineering ticket.
+                  Select a Jira ticket first, then ask Ticket2Patch to investigate
+                  it and inspect the repository.
                 </p>
                 <div className="suggestions">
                   {suggestions.map((suggestion) => (
@@ -275,7 +455,7 @@ export function ChatWorkspace() {
           <form className="composer" onSubmit={submit}>
             <textarea
               aria-label="Message Ticket2Patch"
-              disabled={sending}
+              disabled={sending || !selectedTicketKey || !selectedRepository}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
@@ -283,7 +463,11 @@ export function ChatWorkspace() {
                   event.currentTarget.form?.requestSubmit();
                 }
               }}
-              placeholder="Ask about an issue or create a new one…"
+              placeholder={
+                selectedTicketKey
+                  ? `Ask Ticket2Patch to investigate ${selectedTicketKey}…`
+                  : "Select a Jira ticket before starting…"
+              }
               ref={inputRef}
               rows={3}
               value={draft}
@@ -291,7 +475,12 @@ export function ChatWorkspace() {
             <div className="composerFooter">
               <span>Enter to send · Shift + Enter for a new line</span>
               <button
-                disabled={sending || !draft.trim()}
+                disabled={
+                  sending ||
+                  !draft.trim() ||
+                  !selectedTicketKey ||
+                  !selectedRepository
+                }
                 type="submit"
               >
                 {sending ? "Working…" : "Send message"}
